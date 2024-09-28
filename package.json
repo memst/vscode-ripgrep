@@ -1,0 +1,148 @@
+{
+  "name": "ripgrep",
+  "publisher": "JimmyZJX",
+  "displayName": "Ripgrep",
+  "description": "Ripgrep with full keyboard navigable support",
+  "version": "0.1.1",
+  "homepage": "https://github.com/JimmyZJX/leaderkey",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JimmyZJX/leaderkey"
+  },
+  "bugs": {
+    "url": "https://github.com/JimmyZJX/leaderkey/issues"
+  },
+  "icon": "img/logo.png",
+  "engines": {
+    "vscode": "^1.89.0"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "ripgrep",
+    "rg",
+    "findinfile",
+    "grep"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "ripgrep-panel"
+      }
+    ],
+    "commands": [
+      {
+        "command": "ripgrep.find",
+        "title": "Ripgrep Find"
+      },
+      {
+        "command": "ripgrep.onkey",
+        "title": "Ripgrep On-key (internal)"
+      }
+    ],
+    "configurationDefaults": {
+      "[ripgrep-panel]": {
+        "editor.lineNumbers": "off",
+        "editor.folding": false,
+        "editor.glyphMargin": false
+      }
+    },
+    "configuration": {
+      "title": "ripgrep",
+      "properties": {
+        "ripgrep.exe": {
+          "type": "object",
+          "default": {},
+          "description": "leaderkey user configuration dictionary.\nThe key of the dict is a leaderkey path (e.g. `SPC a f`).\nThe value is usually a command ({command: \"some-command\"}) but could also be a string (as the name of the binding group)"
+        }
+      }
+    },
+    "keybindings": []
+  },
+  "prettier": {
+    "printWidth": 90
+  },
+  "eslintConfig": {
+    "root": true,
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+      "@typescript-eslint"
+    ],
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/recommended"
+    ],
+    "rules": {
+      "semi": [
+        2,
+        "always"
+      ],
+      "object-shorthand": [
+        "error",
+        "always"
+      ],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          "args": "all",
+          "argsIgnorePattern": "^_",
+          "caughtErrors": "all",
+          "caughtErrorsIgnorePattern": "^_",
+          "destructuredArrayIgnorePattern": "^_",
+          "varsIgnorePattern": "^_",
+          "ignoreRestSiblings": true
+        }
+      ],
+      "@typescript-eslint/no-explicit-any": 0,
+      "@typescript-eslint/explicit-module-boundary-types": 0,
+      "@typescript-eslint/no-non-null-assertion": 0,
+      "@typescript-eslint/no-namespace": 0,
+      "eqeqeq": [
+        "error",
+        "always"
+      ]
+    }
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "transform": {
+      "^.+\\.(ts|tsx)?$": "ts-jest"
+    },
+    "modulePathIgnorePatterns": [
+      "./out/"
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile-web",
+    "compile": "tsc -p ./",
+    "watch": "tsc --watch",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "jest",
+    "testw": "jest --watchAll",
+    "prettier": "prettier",
+    "prettier-check": "prettier \"src/**/*.ts\" --check --log-level warn",
+    "vsce": "vsce package --out dist/leaderkey.vsix"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.1.2",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.89.0 <1.90.0",
+    "@typescript-eslint/eslint-plugin": "^8.3.0",
+    "@typescript-eslint/parser": "^8.3.0",
+    "@vscode/vsce": "^2.23.0",
+    "eslint": "^8.26.0",
+    "mocha": "^9.2.0",
+    "ts-jest": "^29.1.2",
+    "ts-loader": "^9.2.5",
+    "typescript": "^5.3.2 <5.6.0"
+  }
+}
