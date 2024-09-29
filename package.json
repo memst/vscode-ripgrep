@@ -44,8 +44,12 @@
         "title": "Ripgrep Find"
       },
       {
-        "command": "ripgrep.onkey",
-        "title": "Ripgrep On-key (internal)"
+        "command": "ripgrep.nop",
+        "title": "Ripgrep No-op (internal)"
+      },
+      {
+        "command": "ripgrep.moveFocus",
+        "title": "Ripgrep move focus (internal)"
       }
     ],
     "configurationDefaults": {
@@ -60,12 +64,24 @@
       "properties": {
         "ripgrep.exe": {
           "type": "object",
-          "default": {},
+          "default": { },
           "description": "leaderkey user configuration dictionary.\nThe key of the dict is a leaderkey path (e.g. `SPC a f`).\nThe value is usually a command ({command: \"some-command\"}) but could also be a string (as the name of the binding group)"
         }
       }
     },
-    "keybindings": []
+    "keybindings": [
+      { "key": "enter",
+        "command": "ripgrep.nop",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'" },
+      { "key": "ctrl+shift+j",
+        "command": "ripgrep.moveFocus",
+        "args": "down",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'" },
+      { "key": "ctrl+shift+k",
+        "command": "ripgrep.moveFocus",
+        "args": "up",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'" }
+    ]
   },
   "prettier": {
     "printWidth": 90

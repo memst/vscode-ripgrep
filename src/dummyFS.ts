@@ -22,7 +22,7 @@ export class DummyFS implements FileSystemProvider {
     return [];
   }
   readFile(uri: Uri): Uint8Array {
-    return Buffer.from("rg> \n");
+    return Buffer.from("rg> \n\n");
   }
   writeFile(
     uri: Uri,
