@@ -1,13 +1,16 @@
 import {
+  commands,
   DecorationOptions,
   DecorationRenderOptions,
   Position,
   Range,
+  TabInputText,
   TextEditor,
   TextEditorRevealType,
   ThemeColor,
   Uri,
   window,
+  workspace,
 } from "vscode";
 import { throttle } from "./throttle";
 import { ChildProcess } from "child_process";
@@ -69,7 +72,7 @@ export class Panel {
   private applyEdits: () => void;
 
   private rgPanelEditor: TextEditor | undefined;
-  private reqSrcEditor: TextEditor | undefined;
+  private reqViewColumn: number | undefined;
 
   private matchLineInfos: MatchLine[] = [];
   private matchDecorationRegions: Range[] = [];
@@ -89,43 +92,54 @@ export class Panel {
       const edits = this.pendingEdits;
       const toAdd = edits.map((pe) => pe.line).join("");
       this.pendingEdits = [];
-      await this.rgPanelEditor.edit((eb) => {
-        if (this.rgPanelEditor === undefined) return;
-        const doc = this.rgPanelEditor.document;
-        const docEnd = doc.lineAt(doc.lineCount - 1).range.end;
-        if (this.refreshResults) {
-          this.refreshResults = false;
-          eb.replace(new Range(doc.lineAt(1).range.end, docEnd), toAdd);
-        } else {
-          eb.insert(docEnd, toAdd);
-        }
-        if (this.pendingSummary) {
-          const s = this.pendingSummary;
-          this.pendingSummary = undefined;
-          if (s.type === "done") {
-            eb.replace(
-              doc.lineAt(1).range,
-              `Done: ${s.matches} matches found in ${s.elapsed}`
-            );
-          } else if (s.type === "start") {
-            eb.replace(doc.lineAt(1).range, `Processing query [${s.query}]`);
+      await this.rgPanelEditor.edit(
+        (eb) => {
+          if (this.rgPanelEditor === undefined) return;
+          const doc = this.rgPanelEditor.document;
+          const docEnd = doc.lineAt(doc.lineCount - 1).range.end;
+          if (this.refreshResults) {
+            this.refreshResults = false;
+            eb.replace(new Range(doc.lineAt(1).range.end, docEnd), toAdd);
+          } else {
+            eb.insert(docEnd, toAdd);
           }
-        }
-      });
+          if (this.pendingSummary) {
+            const s = this.pendingSummary;
+            this.pendingSummary = undefined;
+            if (s.type === "done") {
+              eb.replace(
+                doc.lineAt(1).range,
+                `Done: ${s.matches} matches found in ${s.elapsed}`
+              );
+            } else if (s.type === "start") {
+              eb.replace(doc.lineAt(1).range, `Processing query [${s.query}]`);
+            }
+          }
+        },
+        { undoStopAfter: false, undoStopBefore: false }
+      );
       this.rgPanelEditor?.setDecorations(matchDecoration, this.matchDecorationRegions);
-      if (this.currentFocus === undefined) this.setFocus(0);
+      if (this.currentFocus === undefined) {
+        await this.setFocus(0);
+      }
     }, 200);
   }
 
   public init(rgPanelEditor: TextEditor, reqSrcEditor: TextEditor) {
     this.rgPanelEditor = rgPanelEditor;
-    this.reqSrcEditor = reqSrcEditor;
+    this.reqViewColumn = reqSrcEditor.viewColumn;
   }
 
-  public quit() {
-    this.rgPanelEditor = undefined;
-    this.reqSrcEditor = undefined;
+  public async quit() {
     this.proc?.kill();
+    if (this.rgPanelEditor !== undefined) {
+      const doc = this.rgPanelEditor.document;
+      const viewColumn = this.rgPanelEditor.viewColumn;
+      await window.showTextDocument(doc, { preserveFocus: false, viewColumn });
+      await commands.executeCommand("workbench.action.files.saveWithoutFormatting");
+      await commands.executeCommand("workbench.action.closeEditorsAndGroup");
+    }
+    this.rgPanelEditor = undefined;
   }
 
   public isQueryId(queryId: number) {
@@ -180,6 +194,32 @@ export class Panel {
     }
   }
 
+  public async enter() {
+    await this.quit();
+    if (this.currentFocus === undefined) return;
+    const info = this.matchLineInfos[this.currentFocus];
+    const f = info.file;
+    const l = info.lineNo;
+    if (info !== undefined && f !== undefined && l !== undefined) {
+      const viewColumn = this.reqViewColumn ?? 1;
+      (async function () {
+        const file = Uri.file(
+          path.join("C:\\Users\\Jimmy\\source\\repos\\vscode-ripgrep", f)
+        );
+        const doc = await workspace.openTextDocument(file);
+        const lineL = doc.lineAt(l - 1).range;
+        const editor = await window.showTextDocument(doc, {
+          viewColumn,
+          preserveFocus: false,
+          preview: false,
+          selection: new Range(lineL.start, lineL.start),
+        });
+        editor.setDecorations(focusDecoration, []);
+        editor.revealRange(lineL, TextEditorRevealType.InCenterIfOutsideViewport);
+      })();
+    }
+  }
+
   public moveFocus(dir: "up" | "down") {
     if (this.matchLineInfos.length === 0) return;
     let focus = this.currentFocus ?? 0;
@@ -191,34 +231,31 @@ export class Panel {
     this.setFocus(focus);
   }
 
-  private setFocus(to: number) {
+  private async setFocus(to: number) {
+    if (this.matchLineInfos[to] === undefined) return;
     this.currentFocus = to;
 
     if (this.rgPanelEditor !== undefined) {
       const line = to + 2;
-      this.rgPanelEditor.setDecorations(focusDecoration, [
-        this.rgPanelEditor.document.lineAt(line).range,
-      ]);
+      this.rgPanelEditor.setDecorations(focusDecoration, [new Range(line, 0, line, 0)]);
       this.rgPanelEditor.revealRange(new Range(line - 1, 0, line + 1, 0));
 
       const info = this.matchLineInfos[to];
       const f = info.file;
       const l = info.lineNo;
       if (info !== undefined && f !== undefined && l !== undefined) {
-        (async function () {
-          // TODO viewColumn
-          const file = Uri.file(
-            path.join("C:\\Users\\Jimmy\\source\\repos\\vscode-ripgrep", f)
-          );
-          const editor = await window.showTextDocument(file, {
-            viewColumn: 1,
-            preserveFocus: true,
-            preview: true,
-          });
-          const lineL = editor.document.lineAt(l - 1).range;
-          editor.setDecorations(focusDecoration, [lineL]);
-          editor.revealRange(lineL, TextEditorRevealType.InCenter);
-        })();
+        const viewColumn = this.reqViewColumn ?? 1;
+        const file = Uri.file(
+          path.join("C:\\Users\\Jimmy\\source\\repos\\vscode-ripgrep", f)
+        );
+        const editor = await window.showTextDocument(file, {
+          viewColumn,
+          preserveFocus: true,
+          preview: true,
+        });
+        const lineL = editor.document.lineAt(l - 1).range;
+        editor.setDecorations(focusDecoration, [lineL]);
+        editor.revealRange(lineL, TextEditorRevealType.InCenter);
       }
     }
   }

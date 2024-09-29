@@ -15,7 +15,8 @@ import { GrepLine, Panel, Summary } from "./panel";
 
 const RIPGREP_LANGID = "ripgrep-panel";
 const DUMMY_FS_SCHEME = "rg-vscode-fake-fs";
-const RG_BUFFER_PATH = "/VSCode Ripgrep";
+const RG_BUFFER_NAME = "VSCode Ripgrep";
+let rgBufferCounter = 0;
 
 const grepPanel = new Panel();
 
@@ -118,7 +119,10 @@ async function find() {
   const reqSrcEditor = window.activeTextEditor;
   if (reqSrcEditor === undefined) return;
 
-  const file = Uri.from({ scheme: DUMMY_FS_SCHEME, path: RG_BUFFER_PATH });
+  const file = Uri.from({
+    scheme: DUMMY_FS_SCHEME,
+    path: `/${rgBufferCounter++}/${RG_BUFFER_NAME}`,
+  });
   workspace.fs.writeFile(file, new Uint8Array());
   const doc = await workspace.openTextDocument(file);
   languages.setTextDocumentLanguage(doc, RIPGREP_LANGID);
@@ -169,9 +173,10 @@ export async function activate(context: ExtensionContext) {
       setTimeout(onEdit, 200);
     }
   });
-  context.subscriptions.push(commands.registerCommand("ripgrep.nop", () => {}));
-  context.subscriptions.push(commands.registerCommand("ripgrep.find", find));
   context.subscriptions.push(
+    commands.registerCommand("ripgrep.enter", async () => grepPanel.enter()),
+    commands.registerCommand("ripgrep.quit", async () => grepPanel.quit()),
+    commands.registerCommand("ripgrep.find", find),
     commands.registerCommand("ripgrep.moveFocus", (args) => grepPanel.moveFocus(args))
   );
 }

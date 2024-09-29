@@ -41,11 +41,15 @@
     "commands": [
       {
         "command": "ripgrep.find",
-        "title": "Ripgrep Find"
+        "title": "Ripgrep find"
       },
       {
-        "command": "ripgrep.nop",
-        "title": "Ripgrep No-op (internal)"
+        "command": "ripgrep.enter",
+        "title": "Ripgrep goto result"
+      },
+      {
+        "command": "ripgrep.quit",
+        "title": "Ripgrep quit search panel"
       },
       {
         "command": "ripgrep.moveFocus",
@@ -71,7 +75,10 @@
     },
     "keybindings": [
       { "key": "enter",
-        "command": "ripgrep.nop",
+        "command": "ripgrep.enter",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'" },
+      { "key": "escape",
+        "command": "ripgrep.quit",
         "when": "editorFocus && editorLangId == 'ripgrep-panel'" },
       { "key": "ctrl+shift+j",
         "command": "ripgrep.moveFocus",
