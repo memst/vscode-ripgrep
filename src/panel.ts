@@ -27,7 +27,6 @@ interface MatchLine {
 
 interface PendingEdit {
   line: string;
-  matchRanges: Range[];
 }
 
 export type Summary =
@@ -45,11 +44,11 @@ const MAX_LINES_TO_SHOW = 200;
 
 const focusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
-  //   backgroundColor: new ThemeColor("list.activeSelectionBackground"),
   backgroundColor: new ThemeColor("peekViewEditor.matchHighlightBackground"),
 });
 const matchDecoration = window.createTextEditorDecorationType({
-  backgroundColor: new ThemeColor("peekViewEditor.matchHighlightBackground"),
+  color: new ThemeColor("errorForeground"),
+  fontWeight: "bold",
 });
 const matchFilenameDecoration = window.createTextEditorDecorationType({
   color: new ThemeColor("terminal.ansiBrightBlue"),
@@ -113,7 +112,7 @@ export class Panel {
           }
         }
       });
-      // TODO set decoration
+      this.rgPanelEditor?.setDecorations(matchDecoration, this.matchDecorationRegions);
       if (this.currentFocus === undefined) this.setFocus(0);
     }, 200);
   }
@@ -232,21 +231,20 @@ export class Panel {
       if (nextLine >= MAX_LINES_TO_SHOW) {
         if (nextLine == MAX_LINES_TO_SHOW) {
           // show max lines message
-          this.pendingEdits.push({ line: "\n...more results omitted", matchRanges: [] });
+          this.pendingEdits.push({ line: "\n...more results omitted" });
           this.matchLineInfos.push({});
         }
         nextLine++;
         break;
       }
-      this.pendingEdits.push({
-        line: `\n${gl.file}:${gl.lineNo}: ${gl.line}`,
-        matchRanges: gl.match.map(
-          ({ start, end }) => new Range(nextLine, start, nextLine, end)
-        ),
-      });
+      const linePre = `${gl.file}:${gl.lineNo}:`;
+      const linePreLen = linePre.length;
+      this.pendingEdits.push({ line: `\n${linePre}${gl.line}` });
       this.matchLineInfos.push({ file: gl.file, lineNo: gl.lineNo });
       for (const { start, end } of gl.match) {
-        this.matchDecorationRegions.push(new Range(nextLine, start, nextLine, end));
+        this.matchDecorationRegions.push(
+          new Range(nextLine, linePreLen + start, nextLine, linePreLen + end)
+        );
       }
       nextLine++;
     }
