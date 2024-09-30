@@ -1,12 +1,12 @@
 import {
-  FileSystemProvider,
-  Uri,
-  FileStat,
-  FileType,
+  Disposable,
   Event,
   EventEmitter,
   FileChangeEvent,
-  Disposable,
+  FileStat,
+  FileSystemProvider,
+  FileType,
+  Uri,
 } from "vscode";
 
 export class DummyFS implements FileSystemProvider {
@@ -22,12 +22,12 @@ export class DummyFS implements FileSystemProvider {
     return [];
   }
   readFile(uri: Uri): Uint8Array {
-    return Buffer.from("rg> \n\n");
+    return Buffer.from(`rg> ${uri.query}\n\n`);
   }
   writeFile(
     uri: Uri,
     content: Uint8Array,
-    options: { create: boolean; overwrite: boolean }
+    options: { create: boolean; overwrite: boolean },
   ): void {}
   rename(oldUri: Uri, newUri: Uri, options: { overwrite: boolean }): void {}
   delete(uri: Uri): void {}

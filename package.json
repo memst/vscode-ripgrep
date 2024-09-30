@@ -169,7 +169,7 @@
     "testw": "jest --watchAll",
     "prettier": "prettier",
     "prettier-check": "prettier \"src/**/*.ts\" --check --log-level warn",
-    "vsce": "vsce package --out dist/leaderkey.vsix"
+    "vsce": "vsce package --allow-star-activation --out dist/vscode-ripgrep.vsix"
   },
   "devDependencies": {
     "@types/jest": "^29.1.2",

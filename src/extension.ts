@@ -117,9 +117,13 @@ async function find() {
   const reqSrcEditor = window.activeTextEditor;
   if (reqSrcEditor === undefined) return;
 
+  const sel = reqSrcEditor.selection;
+  const initQuery = reqSrcEditor.document.getText(new Range(sel.start, sel.end));
+
   const file = Uri.from({
     scheme: DUMMY_FS_SCHEME,
     path: `/${RG_BUFFER_NAME}          ${rgBufferCounter++}`,
+    query: initQuery,
   });
   workspace.fs.writeFile(file, new Uint8Array());
   const doc = await workspace.openTextDocument(file);
@@ -153,13 +157,18 @@ async function find() {
 
   await commands.executeCommand("vscode.setEditorLayout", editorGroupLayout);
 
+  const docLine0End = doc.lineAt(0).range.end;
   const rgPanelEditor = await window.showTextDocument(doc, {
     viewColumn: numGroups(editorGroupLayout),
-    selection: new Range(0, 4, 0, 4),
+    selection: new Range(docLine0End, docLine0End),
   });
-  await commands.executeCommand("vim.remap", { after: "A" });
+  try {
+    // try to turn vim into insert mode
+    await commands.executeCommand("vim.remap", { after: "A" });
+  } catch {}
 
   grepPanel.init(rgPanelEditor, reqSrcEditor);
+  await onEdit();
 }
 
 export async function activate(context: ExtensionContext) {
