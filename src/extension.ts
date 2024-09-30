@@ -3,9 +3,7 @@ import {
   commands,
   ExtensionContext,
   languages,
-  Position,
   Range,
-  TextEditor,
   Uri,
   window,
   workspace,
@@ -61,10 +59,10 @@ interface GrepSummary {
 
 type GrepMessage = GrepBegin | GrepEnd | GrepMatch | GrepSummary;
 
-function doQuery(query: string, queryId: number) {
-  const rgProc = spawn("C:\\Apps\\ripgrep\\rg.exe", ["--json", query], {
+function doQuery(query: string, queryId: number, cwd: string) {
+  const rgProc = spawn("rg", ["--json", query], {
     stdio: ["ignore", "pipe", "ignore"],
-    cwd: "C:\\Users\\Jimmy\\source\\repos\\vscode-ripgrep",
+    cwd,
   });
   grepPanel.manageProc(rgProc, queryId);
   const stream = rgProc.stdout;
@@ -109,10 +107,10 @@ function doQuery(query: string, queryId: number) {
 }
 
 async function onEdit() {
-  const onEdit = grepPanel.onEdit();
+  const onEdit = await grepPanel.onEdit();
   if (onEdit === undefined) return;
-  const { query, queryId } = onEdit;
-  doQuery(query, queryId);
+  const { query, queryId, cwd } = onEdit;
+  doQuery(query, queryId, cwd);
 }
 
 async function find() {
@@ -121,14 +119,14 @@ async function find() {
 
   const file = Uri.from({
     scheme: DUMMY_FS_SCHEME,
-    path: `/${rgBufferCounter++}/${RG_BUFFER_NAME}`,
+    path: `/${RG_BUFFER_NAME}          ${rgBufferCounter++}`,
   });
   workspace.fs.writeFile(file, new Uint8Array());
   const doc = await workspace.openTextDocument(file);
   languages.setTextDocumentLanguage(doc, RIPGREP_LANGID);
 
   const editorGroupLayout: EditorGroupLayout = await commands.executeCommand(
-    "vscode.getEditorLayout"
+    "vscode.getEditorLayout",
   );
 
   if (editorGroupLayout.orientation == 1) {
@@ -177,7 +175,7 @@ export async function activate(context: ExtensionContext) {
     commands.registerCommand("ripgrep.enter", async () => grepPanel.enter()),
     commands.registerCommand("ripgrep.quit", async () => grepPanel.quit()),
     commands.registerCommand("ripgrep.find", find),
-    commands.registerCommand("ripgrep.moveFocus", (args) => grepPanel.moveFocus(args))
+    commands.registerCommand("ripgrep.moveFocus", (args) => grepPanel.moveFocus(args)),
   );
 }
 

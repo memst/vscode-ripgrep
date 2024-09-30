@@ -60,7 +60,15 @@
       "[ripgrep-panel]": {
         "editor.lineNumbers": "off",
         "editor.folding": false,
-        "editor.glyphMargin": false
+        "editor.glyphMargin": false,
+        "editor.autoClosingBrackets": "never",
+        "editor.autoSurround": "never",
+        "editor.quickSuggestions": {
+          "other": "off",
+          "comments": "off",
+          "strings": "off"
+        },
+        "editor.rulers": []
       }
     },
     "configuration": {
@@ -68,26 +76,34 @@
       "properties": {
         "ripgrep.exe": {
           "type": "object",
-          "default": { },
+          "default": {},
           "description": "leaderkey user configuration dictionary.\nThe key of the dict is a leaderkey path (e.g. `SPC a f`).\nThe value is usually a command ({command: \"some-command\"}) but could also be a string (as the name of the binding group)"
         }
       }
     },
     "keybindings": [
-      { "key": "enter",
+      {
+        "key": "enter",
         "command": "ripgrep.enter",
-        "when": "editorFocus && editorLangId == 'ripgrep-panel'" },
-      { "key": "escape",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      },
+      {
+        "key": "escape",
         "command": "ripgrep.quit",
-        "when": "editorFocus && editorLangId == 'ripgrep-panel'" },
-      { "key": "ctrl+shift+j",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      },
+      {
+        "key": "ctrl+shift+j",
         "command": "ripgrep.moveFocus",
         "args": "down",
-        "when": "editorFocus && editorLangId == 'ripgrep-panel'" },
-      { "key": "ctrl+shift+k",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      },
+      {
+        "key": "ctrl+shift+k",
         "command": "ripgrep.moveFocus",
         "args": "up",
-        "when": "editorFocus && editorLangId == 'ripgrep-panel'" }
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      }
     ]
   },
   "prettier": {
@@ -144,7 +160,7 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile-web",
+    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc --watch",
     "pretest": "npm run compile && npm run lint",
@@ -164,6 +180,7 @@
     "@vscode/vsce": "^2.23.0",
     "eslint": "^8.26.0",
     "mocha": "^9.2.0",
+    "prettier": "3.3.3",
     "ts-jest": "^29.1.2",
     "ts-loader": "^9.2.5",
     "typescript": "^5.3.2 <5.6.0"
