@@ -36,6 +36,7 @@ export type Summary =
       elapsed: string;
       matches: number;
     }
+  | { type: "error"; msg: string }
   | {
       type: "start";
       query: string;
@@ -43,6 +44,10 @@ export type Summary =
 
 interface Mode {
   cwd: string;
+  docDir: string | undefined;
+  workspaceDir: string | undefined;
+  /** doc/ws dir can only be changed if cwd is not edited manually */
+  isDocOrWorkspaceDir: boolean;
 }
 
 const MAX_LINES_TO_SHOW = 200;
@@ -111,16 +116,21 @@ export class Panel {
             if (s.type === "done") {
               eb.replace(
                 doc.lineAt(1).range,
-                `Done: ${s.matches} matches found in ${s.elapsed}`,
+                `Done: ${s.matches} matches found in ${s.elapsed}`
               );
             } else if (s.type === "start") {
               eb.replace(doc.lineAt(1).range, `Processing query [${s.query}]`);
+            } else if (s.type === "error") {
+              eb.replace(doc.lineAt(1).range, `ERROR: ${s.msg}`);
             }
           }
         },
-        { undoStopAfter: false, undoStopBefore: false },
+        { undoStopAfter: false, undoStopBefore: false }
       );
-      this.rgPanelEditor?.setDecorations(matchDecoration, this.matchDecorationRegions);
+      this.rgPanelEditor?.setDecorations(
+        matchDecoration,
+        this.matchDecorationRegions
+      );
       if (this.currentFocus === undefined) {
         await this.setFocus(0);
       }
@@ -131,17 +141,26 @@ export class Panel {
     this.rgPanelEditor = rgPanelEditor;
     this.reqViewColumn = reqSrcEditor?.viewColumn;
     this.curQuery = "";
-    let cwd = workspace.workspaceFolders?.[0].uri.path;
+    const workspaceDir = workspace.workspaceFolders?.[0].uri.path;
+    let docDir = undefined;
     if (reqSrcEditor !== undefined) {
       const doc = reqSrcEditor.document;
-      cwd = path.dirname(doc.uri.path);
+      if (doc.uri.scheme === "file") {
+        docDir = path.dirname(doc.uri.path);
+      }
     }
+    const cwdPath = docDir ?? workspaceDir;
+    const cwd =
+      cwdPath === undefined
+        ? undefined
+        : Uri.from({ scheme: "file", path: cwdPath }).fsPath;
     if (cwd === undefined) {
-      const msg = "Unable to get cwd: both workspace and current folder are undefined";
+      const msg =
+        "Unable to get cwd: both workspace and current folder are undefined";
       window.showErrorMessage(msg);
       throw msg;
     }
-    this.curMode = { cwd };
+    this.curMode = { cwd, docDir, workspaceDir, isDocOrWorkspaceDir: true };
   }
 
   public async quit() {
@@ -150,7 +169,9 @@ export class Panel {
       const doc = this.rgPanelEditor.document;
       const viewColumn = this.rgPanelEditor.viewColumn;
       await window.showTextDocument(doc, { preserveFocus: false, viewColumn });
-      await commands.executeCommand("workbench.action.files.saveWithoutFormatting");
+      await commands.executeCommand(
+        "workbench.action.files.saveWithoutFormatting"
+      );
       await commands.executeCommand("workbench.action.closeEditorsAndGroup");
 
       // TODO try to revert preview panel state to the previous file
@@ -201,8 +222,10 @@ export class Panel {
       await this.rgPanelEditor.edit((eb) => {
         const docEnd = doc.lineAt(doc.lineCount - 1).range.end;
         const line1ToEnd = new Range(new Position(1, 0), docEnd);
-        // TODO show search cwd
-        eb.replace(line1ToEnd, `processing query [${query}]`);
+        eb.replace(
+          line1ToEnd,
+          `processing query [${query}] on [${this.curMode?.cwd}]`
+        );
       });
     }
 
@@ -244,13 +267,24 @@ export class Panel {
     }
   }
 
-  public moveFocus(dir: "up" | "down") {
+  public moveFocus(dir: string) {
     if (this.matchLineInfos.length === 0) return;
     let focus = this.currentFocus ?? 0;
-    if (dir === "up") {
-      focus = Math.max(0, focus - 1);
-    } else if (dir === "down") {
-      focus = Math.min(this.matchLineInfos.length - 1, focus + 1);
+    switch (dir) {
+      case "up":
+        focus = Math.max(0, focus - 1);
+        break;
+      case "up5":
+        focus = Math.max(0, focus - 5);
+        break;
+      case "down":
+        focus = Math.min(this.matchLineInfos.length - 1, focus + 1);
+        break;
+      case "down5":
+        focus = Math.min(this.matchLineInfos.length - 1, focus + 5);
+        break;
+      default:
+        window.showErrorMessage(`Unknown move direction "${dir}"`);
     }
     this.setFocus(focus);
   }
@@ -261,7 +295,9 @@ export class Panel {
 
     if (this.rgPanelEditor !== undefined) {
       const line = to + 2;
-      this.rgPanelEditor.setDecorations(focusDecoration, [new Range(line, 0, line, 0)]);
+      this.rgPanelEditor.setDecorations(focusDecoration, [
+        new Range(line, 0, line, 0),
+      ]);
       this.rgPanelEditor.revealRange(new Range(line - 1, 0, line + 1, 0));
 
       const info = this.matchLineInfos[to];
@@ -302,7 +338,7 @@ export class Panel {
       this.matchLineInfos.push({ file: gl.file, lineNo: gl.lineNo });
       for (const { start, end } of gl.match) {
         this.matchDecorationRegions.push(
-          new Range(nextLine, linePreLen + start, nextLine, linePreLen + end),
+          new Range(nextLine, linePreLen + start, nextLine, linePreLen + end)
         );
       }
       nextLine++;

@@ -61,9 +61,20 @@ type GrepMessage = GrepBegin | GrepEnd | GrepMatch | GrepSummary;
 
 function doQuery(query: string, queryId: number, cwd: string) {
   const rgProc = spawn("rg", ["--json", query], {
-    stdio: ["ignore", "pipe", "ignore"],
+    stdio: ["ignore", "pipe", "pipe"],
     cwd,
   });
+
+  let stderrBuffer = "";
+  rgProc.stderr.on("data", (data) => (stderrBuffer += data.toString()));
+
+  rgProc.on("error", (e) => {
+    grepPanel.onSummary(
+      { type: "error", msg: `Process error ${e}.\n\nstderr:\n${stderrBuffer}` },
+      queryId,
+    );
+  });
+
   grepPanel.manageProc(rgProc, queryId);
   const stream = rgProc.stdout;
   let buf = "";
