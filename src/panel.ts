@@ -130,6 +130,7 @@ export class Panel {
   public init(rgPanelEditor: TextEditor, reqSrcEditor: TextEditor | undefined) {
     this.rgPanelEditor = rgPanelEditor;
     this.reqViewColumn = reqSrcEditor?.viewColumn;
+    this.curQuery = "";
     let cwd = workspace.workspaceFolders?.[0].uri.path;
     if (reqSrcEditor !== undefined) {
       const doc = reqSrcEditor.document;
