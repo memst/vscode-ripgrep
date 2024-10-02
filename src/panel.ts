@@ -47,7 +47,7 @@ interface Mode {
   docDir: string | undefined;
   workspaceDir: string | undefined;
   /** doc/ws dir can only be changed if cwd is not edited manually */
-  isDocOrWorkspaceDir: boolean;
+  docOrWorkspaceDir: "doc" | "workspace" | "neither";
 }
 
 const MAX_LINES_TO_SHOW = 200;
@@ -116,7 +116,7 @@ export class Panel {
             if (s.type === "done") {
               eb.replace(
                 doc.lineAt(1).range,
-                `Done: ${s.matches} matches found in ${s.elapsed}`
+                `Done: ${s.matches} matches in [${this.curMode?.cwd}] (${s.elapsed})`,
               );
             } else if (s.type === "start") {
               eb.replace(doc.lineAt(1).range, `Processing query [${s.query}]`);
@@ -125,12 +125,9 @@ export class Panel {
             }
           }
         },
-        { undoStopAfter: false, undoStopBefore: false }
+        { undoStopAfter: false, undoStopBefore: false },
       );
-      this.rgPanelEditor?.setDecorations(
-        matchDecoration,
-        this.matchDecorationRegions
-      );
+      this.rgPanelEditor?.setDecorations(matchDecoration, this.matchDecorationRegions);
       if (this.currentFocus === undefined) {
         await this.setFocus(0);
       }
@@ -155,12 +152,17 @@ export class Panel {
         ? undefined
         : Uri.from({ scheme: "file", path: cwdPath }).fsPath;
     if (cwd === undefined) {
-      const msg =
-        "Unable to get cwd: both workspace and current folder are undefined";
+      const msg = "Unable to get cwd: both workspace and current folder are undefined";
       window.showErrorMessage(msg);
       throw msg;
     }
-    this.curMode = { cwd, docDir, workspaceDir, isDocOrWorkspaceDir: true };
+    const docOrWorkspaceDir = docDir !== undefined ? "doc" : "workspace";
+    this.curMode = {
+      cwd,
+      docDir,
+      workspaceDir,
+      docOrWorkspaceDir,
+    };
   }
 
   public async quit() {
@@ -169,9 +171,7 @@ export class Panel {
       const doc = this.rgPanelEditor.document;
       const viewColumn = this.rgPanelEditor.viewColumn;
       await window.showTextDocument(doc, { preserveFocus: false, viewColumn });
-      await commands.executeCommand(
-        "workbench.action.files.saveWithoutFormatting"
-      );
+      await commands.executeCommand("workbench.action.files.saveWithoutFormatting");
       await commands.executeCommand("workbench.action.closeEditorsAndGroup");
 
       // TODO try to revert preview panel state to the previous file
@@ -202,6 +202,26 @@ export class Panel {
     }
   }
 
+  /** returns new query id or undefined if not changed */
+  public async toggleDir() {
+    if (this.rgPanelEditor === undefined) return undefined;
+    assert(this.curMode !== undefined, "unexpected undefined mode");
+    const mode = this.curMode;
+    if (mode.docOrWorkspaceDir === "doc" && mode.workspaceDir !== undefined) {
+      mode.docOrWorkspaceDir = "workspace";
+      mode.cwd = Uri.from({ scheme: "file", path: mode.workspaceDir }).fsPath;
+    } else if (mode.docOrWorkspaceDir === "workspace" && mode.docDir !== undefined) {
+      mode.docOrWorkspaceDir = "doc";
+      mode.cwd = Uri.from({ scheme: "file", path: mode.docDir }).fsPath;
+    } else {
+      // not changed
+      return undefined;
+    }
+    const query = this.curQuery;
+    const queryId = await this.newQuery(query);
+    return { query, queryId, cwd: mode.cwd };
+  }
+
   // TODO support mode change
   private async newQuery(query: string): Promise<number> {
     this.queryId++;
@@ -222,10 +242,7 @@ export class Panel {
       await this.rgPanelEditor.edit((eb) => {
         const docEnd = doc.lineAt(doc.lineCount - 1).range.end;
         const line1ToEnd = new Range(new Position(1, 0), docEnd);
-        eb.replace(
-          line1ToEnd,
-          `processing query [${query}] on [${this.curMode?.cwd}]`
-        );
+        eb.replace(line1ToEnd, `processing query [${query}] in [${this.curMode?.cwd}]`);
       });
     }
 
@@ -295,9 +312,7 @@ export class Panel {
 
     if (this.rgPanelEditor !== undefined) {
       const line = to + 2;
-      this.rgPanelEditor.setDecorations(focusDecoration, [
-        new Range(line, 0, line, 0),
-      ]);
+      this.rgPanelEditor.setDecorations(focusDecoration, [new Range(line, 0, line, 0)]);
       this.rgPanelEditor.revealRange(new Range(line - 1, 0, line + 1, 0));
 
       const info = this.matchLineInfos[to];
@@ -338,7 +353,7 @@ export class Panel {
       this.matchLineInfos.push({ file: gl.file, lineNo: gl.lineNo });
       for (const { start, end } of gl.match) {
         this.matchDecorationRegions.push(
-          new Range(nextLine, linePreLen + start, nextLine, linePreLen + end)
+          new Range(nextLine, linePreLen + start, nextLine, linePreLen + end),
         );
       }
       nextLine++;

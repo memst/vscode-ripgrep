@@ -41,19 +41,23 @@
     "commands": [
       {
         "command": "ripgrep.find",
-        "title": "Ripgrep find"
+        "title": "Ripgrep: find"
       },
       {
         "command": "ripgrep.enter",
-        "title": "Ripgrep goto result"
+        "title": "Ripgrep: goto result"
       },
       {
         "command": "ripgrep.quit",
-        "title": "Ripgrep quit search panel"
+        "title": "Ripgrep: quit search panel"
       },
       {
         "command": "ripgrep.moveFocus",
-        "title": "Ripgrep move focus (internal)"
+        "title": "Ripgrep: move focus (internal)"
+      },
+      {
+        "command": "ripgrep.toggleSearchDir",
+        "title": "Ripgrep: toggle search dir (project dir / current dir)"
       }
     ],
     "configurationDefaults": {
@@ -134,6 +138,11 @@
         "key": "ctrl+u",
         "command": "ripgrep.moveFocus",
         "args": "up5",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      },
+      {
+        "key": "alt+d",
+        "command": "ripgrep.toggleSearchDir",
         "when": "editorFocus && editorLangId == 'ripgrep-panel'"
       },
       {

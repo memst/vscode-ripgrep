@@ -121,6 +121,15 @@ async function onEdit() {
   const onEdit = await grepPanel.onEdit();
   if (onEdit === undefined) return;
   const { query, queryId, cwd } = onEdit;
+  // TODO refactor [doQuery] to a callback
+  doQuery(query, queryId, cwd);
+}
+
+async function toggleDir() {
+  const onToggle = await grepPanel.toggleDir();
+  if (onToggle === undefined) return;
+  const { query, queryId, cwd } = onToggle;
+  // TODO refactor [doQuery] to a callback
   doQuery(query, queryId, cwd);
 }
 
@@ -196,6 +205,7 @@ export async function activate(context: ExtensionContext) {
     commands.registerCommand("ripgrep.quit", async () => grepPanel.quit()),
     commands.registerCommand("ripgrep.find", find),
     commands.registerCommand("ripgrep.moveFocus", (args) => grepPanel.moveFocus(args)),
+    commands.registerCommand("ripgrep.toggleSearchDir", () => toggleDir()),
   );
 }
 
