@@ -6,10 +6,12 @@ import {
   Position,
   Range,
   Selection,
+  TextDocument,
   TextEditor,
   TextEditorRevealType,
   ThemeColor,
   Uri,
+  ViewColumn,
   window,
   workspace,
 } from "vscode";
@@ -89,6 +91,7 @@ export class Panel {
 
   private rgPanelEditor: TextEditor | undefined;
   private reqViewColumn: number | undefined;
+  private reqDoc: TextDocument | undefined;
 
   private matchLineInfos: MatchLine[] = [];
   private matchDecorationRegions: Range[] = [];
@@ -155,18 +158,17 @@ export class Panel {
     }, 200);
   }
 
-  public init(rgPanelEditor: TextEditor, reqSrcEditor: TextEditor | undefined) {
+  public init(
+    rgPanelEditor: TextEditor,
+    reqViewColumn: ViewColumn | undefined,
+    reqDoc: TextDocument,
+  ) {
     this.rgPanelEditor = rgPanelEditor;
-    this.reqViewColumn = reqSrcEditor?.viewColumn;
+    this.reqViewColumn = reqViewColumn;
     this.curQuery = "";
     const workspaceDir = workspace.workspaceFolders?.[0].uri.path;
-    let docDir = undefined;
-    if (reqSrcEditor !== undefined) {
-      const doc = reqSrcEditor.document;
-      if (doc.uri.scheme === "file") {
-        docDir = path.dirname(doc.uri.path);
-      }
-    }
+    let docDir = reqDoc.uri.scheme === "file" ? path.dirname(reqDoc.uri.path) : undefined;
+    this.reqDoc = reqDoc;
     const cwdPath = docDir ?? workspaceDir;
     const cwd =
       cwdPath === undefined
@@ -188,9 +190,11 @@ export class Panel {
 
   public async quit(backToStart: boolean) {
     this.proc?.kill();
-    if (this.rgPanelEditor !== undefined) {
-      const doc = this.rgPanelEditor.document;
-      const viewColumn = this.rgPanelEditor.viewColumn;
+    const panelEditor = this.rgPanelEditor;
+    if (panelEditor !== undefined) {
+      this.rgPanelEditor = undefined;
+      const doc = panelEditor.document;
+      const viewColumn = panelEditor.viewColumn;
       await window.showTextDocument(doc, { preserveFocus: false, viewColumn });
       await commands.executeCommand("workbench.action.files.saveWithoutFormatting");
       await commands.executeCommand("workbench.action.closeEditorsAndGroup");
@@ -201,10 +205,17 @@ export class Panel {
         editor.setDecorations(focusDecoration, []);
       }
       if (backToStart) {
-        // TODO try to revert preview panel state to the previous file
+        if (this.reqDoc !== undefined) {
+          const editor = await window.showTextDocument(this.reqDoc, {
+            viewColumn: this.reqViewColumn,
+            preserveFocus: false,
+            preview: false,
+          });
+          await vimEsc();
+          editor.revealRange(editor.selection, TextEditorRevealType.InCenter);
+        }
       }
     }
-    this.rgPanelEditor = undefined;
   }
 
   public isQueryId(queryId: number) {
@@ -305,9 +316,7 @@ export class Panel {
         preserveFocus: false,
         preview: false,
       });
-      try {
-        await commands.executeCommand("vim.remap", { after: ["<Esc>"] });
-      } catch {}
+      await vimEsc();
       editor.selections = [new Selection(lineL.start, lineL.start)];
       editor.setDecorations(focusDecoration, []);
       editor.revealRange(lineL, TextEditorRevealType.InCenterIfOutsideViewport);
@@ -407,4 +416,10 @@ export class Panel {
     this.pendingSummary = summary;
     this.applyEdits();
   }
+}
+
+async function vimEsc() {
+  try {
+    await commands.executeCommand("vim.remap", { after: ["<Esc>"] });
+  } catch {}
 }

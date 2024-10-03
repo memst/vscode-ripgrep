@@ -137,8 +137,10 @@ async function find() {
   const reqSrcEditor = window.activeTextEditor;
   if (reqSrcEditor === undefined) return;
 
+  const reqDoc = reqSrcEditor.document;
+  const reqViewColumn = reqSrcEditor.viewColumn;
   const sel = reqSrcEditor.selection;
-  const initQuery = reqSrcEditor.document.getText(new Range(sel.start, sel.end));
+  const initQuery = reqDoc.getText(new Range(sel.start, sel.end));
 
   const file = Uri.from({
     scheme: DUMMY_FS_SCHEME,
@@ -187,7 +189,7 @@ async function find() {
     await commands.executeCommand("vim.remap", { after: "A" });
   } catch {}
 
-  grepPanel.init(rgPanelEditor, reqSrcEditor);
+  grepPanel.init(rgPanelEditor, reqViewColumn, reqDoc);
   await onEdit();
 }
 
