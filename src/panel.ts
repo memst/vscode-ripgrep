@@ -53,6 +53,14 @@ interface Mode {
 
 const MAX_LINES_TO_SHOW = 200;
 
+const queryDecoration = window.createTextEditorDecorationType({
+  isWholeLine: true,
+  backgroundColor: new ThemeColor("list.hoverBackground"),
+});
+const StatusDecoration = window.createTextEditorDecorationType({
+  isWholeLine: true,
+  backgroundColor: new ThemeColor("statusBar.background"),
+});
 const focusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
   backgroundColor: new ThemeColor("list.activeSelectionBackground"),
@@ -206,6 +214,8 @@ export class Panel {
   /** returns new query id or undefined if not changed */
   public async onEdit() {
     if (this.rgPanelEditor === undefined) return undefined;
+    this.rgPanelEditor.setDecorations(queryDecoration, [new Range(0, 0, 0, 0)]);
+    this.rgPanelEditor.setDecorations(StatusDecoration, [new Range(1, 0, 1, 0)]);
     const doc = this.rgPanelEditor.document;
     const query = doc.getText(doc.lineAt(0).range).replace(/^rg> /, "");
     if (query === this.curQuery || query === "") {
