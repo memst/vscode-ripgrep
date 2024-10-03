@@ -188,6 +188,12 @@ export class Panel {
     };
   }
 
+  public onDocumentClosed(doc: TextDocument) {
+    if (this.rgPanelEditor?.document.uri.toString() === doc.uri.toString()) {
+      this.quit(true);
+    }
+  }
+
   public async quit(backToStart: boolean) {
     this.proc?.kill();
     const panelEditor = this.rgPanelEditor;

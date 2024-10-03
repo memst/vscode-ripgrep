@@ -202,6 +202,12 @@ export async function activate(context: ExtensionContext) {
       setTimeout(onEdit, 200);
     }
   });
+  workspace.onDidCloseTextDocument((doc) => {
+    grepPanel.onDocumentClosed(doc);
+  });
+  window.onDidChangeActiveTextEditor((_te) => {
+    grepPanel.quit(false);
+  });
   context.subscriptions.push(
     commands.registerCommand("ripgrep.enter", async () => grepPanel.enter()),
     commands.registerCommand("ripgrep.quit", async () => grepPanel.quit(true)),
