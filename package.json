@@ -3,14 +3,14 @@
   "publisher": "JimmyZJX",
   "displayName": "Ripgrep",
   "description": "Ripgrep with full keyboard navigable support",
-  "version": "0.1.1",
-  "homepage": "https://github.com/JimmyZJX/leaderkey",
+  "version": "0.2.0",
+  "homepage": "https://github.com/JimmyZJX/vscode-ripgrep",
   "repository": {
     "type": "git",
-    "url": "https://github.com/JimmyZJX/leaderkey"
+    "url": "https://github.com/JimmyZJX/vscode-ripgrep"
   },
   "bugs": {
-    "url": "https://github.com/JimmyZJX/leaderkey/issues"
+    "url": "https://github.com/JimmyZJX/vscode-ripgrep/issues"
   },
   "icon": "img/logo.png",
   "engines": {
