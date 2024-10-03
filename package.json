@@ -117,6 +117,18 @@
         "when": "editorTextFocus && vim.active && vim.use<C-d> && !inDebugRepl"
       },
       {
+        "key": "ctrl+shift+j",
+        "command": "ripgrep.moveFocus",
+        "args": "down",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      },
+      {
+        "key": "ctrl+shift+k",
+        "command": "ripgrep.moveFocus",
+        "args": "up",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      },
+      {
         "key": "ctrl+j",
         "command": "ripgrep.moveFocus",
         "args": "down",
@@ -148,22 +160,22 @@
       {
         "key": "ctrl+j",
         "command": "extension.vim_ctrl+j",
-        "when": "editorTextFocus && vim.active && vim.use<C-j> && !inDebugRepl"
+        "when": "editorTextFocus && vim.active && vim.use<C-j> && !inDebugRepl && editorLangId != 'ripgrep-panel'"
       },
       {
         "key": "ctrl+k",
         "command": "extension.vim_ctrl+k",
-        "when": "editorTextFocus && vim.active && vim.use<C-k> && !inDebugRepl"
+        "when": "editorTextFocus && vim.active && vim.use<C-k> && !inDebugRepl && editorLangId != 'ripgrep-panel'"
       },
       {
         "key": "ctrl+u",
         "command": "extension.vim_ctrl+u",
-        "when": "editorTextFocus && vim.active && vim.use<C-u> && !inDebugRepl"
+        "when": "editorTextFocus && vim.active && vim.use<C-u> && !inDebugRepl && editorLangId != 'ripgrep-panel'"
       },
       {
         "key": "ctrl+d",
         "command": "extension.vim_ctrl+d",
-        "when": "editorTextFocus && vim.active && vim.use<C-d> && !inDebugRepl"
+        "when": "editorTextFocus && vim.active && vim.use<C-d> && !inDebugRepl && editorLangId != 'ripgrep-panel'"
       }
     ]
   },

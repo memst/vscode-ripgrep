@@ -202,7 +202,7 @@ export async function activate(context: ExtensionContext) {
   });
   context.subscriptions.push(
     commands.registerCommand("ripgrep.enter", async () => grepPanel.enter()),
-    commands.registerCommand("ripgrep.quit", async () => grepPanel.quit()),
+    commands.registerCommand("ripgrep.quit", async () => grepPanel.quit(true)),
     commands.registerCommand("ripgrep.find", find),
     commands.registerCommand("ripgrep.moveFocus", (args) => grepPanel.moveFocus(args)),
     commands.registerCommand("ripgrep.toggleSearchDir", () => toggleDir()),

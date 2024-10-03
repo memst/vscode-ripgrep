@@ -5,6 +5,7 @@ import {
   commands,
   Position,
   Range,
+  Selection,
   TextEditor,
   TextEditorRevealType,
   ThemeColor,
@@ -54,16 +55,16 @@ const MAX_LINES_TO_SHOW = 200;
 
 const focusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
-  backgroundColor: new ThemeColor("peekViewEditor.matchHighlightBackground"),
+  backgroundColor: new ThemeColor("list.activeSelectionBackground"),
 });
 const matchDecoration = window.createTextEditorDecorationType({
   color: new ThemeColor("errorForeground"),
   fontWeight: "bold",
 });
-const matchFilenameDecoration = window.createTextEditorDecorationType({
+const filenameDecoration = window.createTextEditorDecorationType({
   color: new ThemeColor("terminal.ansiBrightBlue"),
 });
-const matchLineDecoration = window.createTextEditorDecorationType({
+const linenumberDecoration = window.createTextEditorDecorationType({
   color: new ThemeColor("terminal.ansiBrightGreen"),
 });
 
@@ -83,6 +84,8 @@ export class Panel {
 
   private matchLineInfos: MatchLine[] = [];
   private matchDecorationRegions: Range[] = [];
+  private filenameDecorationRegions: Range[] = [];
+  private linenumberDecorationRegions: Range[] = [];
 
   /** index in the arrays, line number = index + 2 */
   private currentFocus: number | undefined = undefined;
@@ -127,7 +130,17 @@ export class Panel {
         },
         { undoStopAfter: false, undoStopBefore: false },
       );
+
       this.rgPanelEditor?.setDecorations(matchDecoration, this.matchDecorationRegions);
+      this.rgPanelEditor?.setDecorations(
+        filenameDecoration,
+        this.filenameDecorationRegions,
+      );
+      this.rgPanelEditor?.setDecorations(
+        linenumberDecoration,
+        this.linenumberDecorationRegions,
+      );
+
       if (this.currentFocus === undefined) {
         await this.setFocus(0);
       }
@@ -165,7 +178,7 @@ export class Panel {
     };
   }
 
-  public async quit() {
+  public async quit(backToStart: boolean) {
     this.proc?.kill();
     if (this.rgPanelEditor !== undefined) {
       const doc = this.rgPanelEditor.document;
@@ -174,11 +187,13 @@ export class Panel {
       await commands.executeCommand("workbench.action.files.saveWithoutFormatting");
       await commands.executeCommand("workbench.action.closeEditorsAndGroup");
 
-      // TODO try to revert preview panel state to the previous file
       // try to remove decorations on the preview editor
       const editor = window.activeTextEditor;
       if (editor !== undefined) {
         editor.setDecorations(focusDecoration, []);
+      }
+      if (backToStart) {
+        // TODO try to revert preview panel state to the previous file
       }
     }
     this.rgPanelEditor = undefined;
@@ -235,6 +250,8 @@ export class Panel {
     this.pendingEdits = [];
     this.matchLineInfos = [];
     this.matchDecorationRegions = [];
+    this.filenameDecorationRegions = [];
+    this.linenumberDecorationRegions = [];
     this.pendingSummary = { type: "start", query };
 
     if (this.rgPanelEditor !== undefined) {
@@ -263,7 +280,7 @@ export class Panel {
   }
 
   public async enter() {
-    await this.quit();
+    await this.quit(false);
     if (this.currentFocus === undefined) return;
     const info = this.matchLineInfos[this.currentFocus];
     const f = info.file;
@@ -277,8 +294,11 @@ export class Panel {
         viewColumn,
         preserveFocus: false,
         preview: false,
-        selection: new Range(lineL.start, lineL.start),
       });
+      try {
+        await commands.executeCommand("vim.remap", { after: ["<Esc>"] });
+      } catch {}
+      editor.selections = [new Selection(lineL.start, lineL.start)];
       editor.setDecorations(focusDecoration, []);
       editor.revealRange(lineL, TextEditorRevealType.InCenterIfOutsideViewport);
     }
@@ -352,6 +372,17 @@ export class Panel {
       this.pendingEdits.push({ line: `\n${linePre}${gl.line}` });
       this.matchLineInfos.push({ file: gl.file, lineNo: gl.lineNo });
       for (const { start, end } of gl.match) {
+        this.filenameDecorationRegions.push(
+          new Range(nextLine, 0, nextLine, gl.file.length),
+        );
+        this.linenumberDecorationRegions.push(
+          new Range(
+            nextLine,
+            gl.file.length + 1,
+            nextLine,
+            gl.file.length + 1 + gl.lineNo.toString().length,
+          ),
+        );
         this.matchDecorationRegions.push(
           new Range(nextLine, linePreLen + start, nextLine, linePreLen + end),
         );
