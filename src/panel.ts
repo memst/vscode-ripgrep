@@ -9,6 +9,7 @@ import {
   TextDocument,
   TextEditor,
   TextEditorRevealType,
+  TextEditorSelectionChangeEvent,
   ThemeColor,
   Uri,
   ViewColumn,
@@ -191,6 +192,30 @@ export class Panel {
   public onDocumentClosed(doc: TextDocument) {
     if (this.rgPanelEditor?.document.uri.toString() === doc.uri.toString()) {
       this.quit(true);
+    }
+  }
+
+  public onChangeSelection(e: TextEditorSelectionChangeEvent) {
+    if (
+      this.rgPanelEditor?.document.uri.toString() === e.textEditor.document.uri.toString()
+    ) {
+      const editor = this.rgPanelEditor;
+      const doc = editor.document;
+      const line0End = doc.lineAt(0).range.end;
+      if (editor.selections.length > 1) {
+        // reset
+        editor.selections = [new Selection(line0End, line0End)];
+      } else {
+        const sel = editor.selections[0];
+        if (sel.active.line === 0 && sel.anchor.line === 0) {
+          // ok
+        } else {
+          const line = sel.active.line;
+          if (line >= 2) this.setFocus(line - 2);
+          // reset
+          editor.selections = [new Selection(line0End, line0End)];
+        }
+      }
     }
   }
 

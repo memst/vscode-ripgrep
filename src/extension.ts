@@ -1,12 +1,12 @@
 import { spawn } from "child_process";
 import {
-  commands,
-  ExtensionContext,
-  languages,
-  Range,
-  Uri,
-  window,
-  workspace,
+    commands,
+    ExtensionContext,
+    languages,
+    Range,
+    Uri,
+    window,
+    workspace,
 } from "vscode";
 import { DummyFS } from "./dummyFS";
 import { GrepLine, Panel, Summary } from "./panel";
@@ -208,6 +208,9 @@ export async function activate(context: ExtensionContext) {
   window.onDidChangeActiveTextEditor((_te) => {
     grepPanel.quit(false);
   });
+  window.onDidChangeTextEditorSelection(e => {
+    grepPanel.onChangeSelection(e);
+  })
   context.subscriptions.push(
     commands.registerCommand("ripgrep.enter", async () => grepPanel.enter()),
     commands.registerCommand("ripgrep.quit", async () => grepPanel.quit(true)),
