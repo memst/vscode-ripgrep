@@ -1,15 +1,22 @@
-import { spawn } from "child_process";
 import {
+  CancellationToken,
   commands,
+  DocumentSymbol,
+  DocumentSymbolProvider,
   ExtensionContext,
   languages,
+  Position,
+  ProviderResult,
   Range,
+  SymbolInformation,
+  SymbolKind,
+  TextDocument,
   Uri,
   window,
   workspace,
 } from "vscode";
 import { DummyFS } from "./dummyFS";
-import { GrepLine, Panel, Summary } from "./panel";
+import { Panel } from "./panel";
 
 const RIPGREP_LANGID = "ripgrep-panel";
 const DUMMY_FS_SCHEME = "rg-vscode-fake-fs";
@@ -116,6 +123,37 @@ export async function activate(context: ExtensionContext) {
     commands.registerCommand("ripgrep.find", find),
     commands.registerCommand("ripgrep.moveFocus", (args) => grepPanel.moveFocus(args)),
     commands.registerCommand("ripgrep.toggleSearchDir", () => grepPanel.toggleDir()),
+  );
+  languages.registerDocumentSymbolProvider(
+    { language: "ripgrep-panel" },
+    new (class implements DocumentSymbolProvider {
+      provideDocumentSymbols(
+        doc: TextDocument,
+        _token: CancellationToken,
+      ): ProviderResult<SymbolInformation[] | DocumentSymbol[]> {
+        if (doc.lineCount >= 2) {
+          const docEnd = doc.lineAt(doc.lineCount - 1).range.end;
+          const ds1 = new DocumentSymbol(
+            "rgpanel-query",
+            "",
+            SymbolKind.Module,
+            new Range(new Position(0, 0), docEnd),
+            doc.lineAt(0).range,
+          );
+
+          const ds2 = new DocumentSymbol(
+            "rgpanel-result",
+            "",
+            SymbolKind.Module,
+            new Range(new Position(1, 0), docEnd),
+            doc.lineAt(1).range,
+          );
+          ds1.children = [ds2];
+          return [ds1];
+        }
+        return [];
+      }
+    })(),
   );
 }
 

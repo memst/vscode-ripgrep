@@ -265,9 +265,11 @@ export class Panel {
     this.rgPanelEditor.setDecorations(StatusDecoration, [new Range(1, 0, 1, 0)]);
     const doc = this.rgPanelEditor.document;
     const query = doc.getText(doc.lineAt(0).range).replace(/^rg> /, "");
-    if (query === this.curQuery || query === "") {
-      // don't start query
+
+    if (this.curQuery === query) {
+      // do nothing to prevent infinite loop
     } else {
+      this.rgPanelEditor.revealRange(new Range(0, 0, 0, 0));
       assert(this.curMode !== undefined, "unexpected undefined mode");
       await this.newQuery(query);
     }
@@ -292,10 +294,12 @@ export class Panel {
   }
 
   // TODO support mode change
-  private async newQuery(query?: string): Promise<void> {
+  private async newQuery(rawQuery?: string): Promise<void> {
     this.queryId++;
     // TODO this.curModes=modes;
-    if (query !== undefined) this.curQuery = query;
+    if (rawQuery !== undefined) this.curQuery = rawQuery;
+    const query = this.curQuery;
+
     this.proc?.kill();
     this.proc = undefined;
 
@@ -306,7 +310,7 @@ export class Panel {
     this.matchDecorationRegions = [];
     this.filenameDecorationRegions = [];
     this.linenumberDecorationRegions = [];
-    this.pendingSummary = { type: "start", query: this.curQuery };
+    this.pendingSummary = { type: "start", query };
 
     if (this.rgPanelEditor !== undefined) {
       const doc = this.rgPanelEditor.document;
@@ -323,17 +327,19 @@ export class Panel {
     // TODO remove filename and line number decorations
 
     // TODO regex escape
-    doQuery(
-      {
-        query: this.curQuery,
-        dir: [],
-        // dir: [this.curMode!.cwd],
-        cwd: this.curMode!.cwd,
-        regex: "on",
-        case: "smart",
-      },
-      this.queryId,
-    );
+    if (query !== "") {
+      doQuery(
+        {
+          query,
+          dir: [],
+          // dir: [this.curMode!.cwd],
+          cwd: this.curMode!.cwd,
+          regex: "on",
+          case: "smart",
+        },
+        this.queryId,
+      );
+    }
   }
 
   public manageProc(proc: ChildProcess, queryId: number) {
