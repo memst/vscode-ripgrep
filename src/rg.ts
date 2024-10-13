@@ -2,6 +2,7 @@ import { spawn } from "child_process";
 import { grepPanel } from "./extension";
 import { GrepLine, Summary } from "./panel";
 import path from "path";
+import { workspace } from "vscode";
 
 interface GrepBegin {
   type: "begin";
@@ -58,7 +59,8 @@ export function doQuery(q: RipGrepQuery, queryId: number) {
     dirs = [];
   }
 
-  const rgProc = spawn("rg", [q.query, ...dirs, ...rgOpts], {
+  const rgExe = workspace.getConfiguration("ripgrep").get("ripgrep.exe", "rg");
+  const rgProc = spawn(rgExe, [q.query, ...dirs, ...rgOpts], {
     stdio: ["ignore", "pipe", "pipe"],
     cwd: q.cwd,
   });

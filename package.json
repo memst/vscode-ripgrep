@@ -20,6 +20,7 @@
     "workspace"
   ],
   "categories": [
+    "Keymaps",
     "Other"
   ],
   "keywords": [
@@ -101,9 +102,9 @@
       "title": "ripgrep",
       "properties": {
         "ripgrep.exe": {
-          "type": "object",
-          "default": { },
-          "description": "leaderkey user configuration dictionary.\nThe key of the dict is a leaderkey path (e.g. `SPC a f`).\nThe value is usually a command ({command: \"some-command\"}) but could also be a string (as the name of the binding group)"
+          "type": "string",
+          "default": "rg",
+          "description": "Path to the `rg` executable"
         }
       }
     },
