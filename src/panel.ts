@@ -8,6 +8,7 @@ import {
   Selection,
   TextDocument,
   TextEditor,
+  TextEditorDecorationType,
   TextEditorRevealType,
   TextEditorSelectionChangeEvent,
   ThemeColor,
@@ -47,12 +48,18 @@ export type Summary =
       query: string;
     };
 
-interface Mode {
+type ModeToggleKeys = "regex" | "case" | "word";
+interface ToggleableModes {
+  regex: "on" | "off";
+  case_: "smart" | "strict" | "ignore";
+  word: "on" | "off";
+}
+
+interface Mode extends ToggleableModes {
   cwd: string;
-  docDir: string | undefined;
-  workspaceDir: string | undefined;
-  /** doc/ws dir can only be changed if cwd is not edited manually */
-  docOrWorkspaceDir: "doc" | "workspace" | "neither";
+  docDir?: string;
+  workspaceRoot?: string;
+  docOrWorkspaceDir: "doc" | "workspace" | undefined;
 }
 
 const MAX_LINES_TO_SHOW = 200;
@@ -60,10 +67,11 @@ const MAX_LINES_TO_SHOW = 200;
 const queryDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
   backgroundColor: new ThemeColor("list.hoverBackground"),
-  before: {
-    contentText: "rg> ",
-    border: "solid 1px gray; border-radius: 5px",
-  },
+  // before: {
+  //   contentText: "rg> ",
+  //   fontWeight: "bold",
+  //   border: "solid 1px gray; border-radius: 5px",
+  // },
 });
 const StatusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
@@ -84,10 +92,84 @@ const linenumberDecoration = window.createTextEditorDecorationType({
   color: new ThemeColor("terminal.ansiBrightGreen"),
 });
 
+function cartesianProduct<T>(...arrays: T[][]) {
+  return [...arrays].reduce(
+    (a: T[][], b) =>
+      a
+        .map((x: any) => b.map((y: any) => x.concat(y)))
+        .reduce((a: any, b: any) => a.concat(b), []),
+    [[]],
+  );
+}
+
+function toggleableModeToKey(mode: ToggleableModes) {
+  return `${mode.case_}|${mode.regex}|${mode.word}`;
+}
+const allToggleableModeDecorations = Object.fromEntries(
+  cartesianProduct(["smart", "ignore", "strict"], ["on", "off"], ["on", "off"]).map(
+    ([case_, regex, word]) => {
+      const key = toggleableModeToKey({
+        case_: case_ as ToggleableModes["case_"],
+        regex: regex as ToggleableModes["regex"],
+        word: word as ToggleableModes["word"],
+      });
+      const deco = window.createTextEditorDecorationType({
+        after: {
+          color: new ThemeColor("textPreformat.foreground"),
+          margin: `0;
+             position: absolute; left: 80ch; font-size: 0.75rem;
+             content: 'Case[${case_}](alt+c) \\00a0 Regex[${regex}](alt+r) \\00a0 Word[${word}](alt+w)'`,
+        },
+      });
+      return [key, deco];
+    },
+  ),
+);
+
+const docDirDeco = window.createTextEditorDecorationType({
+  after: {
+    color: new ThemeColor("textPreformat.foreground"),
+    margin: `; font-size: 0.75rem; position: relative; left: 6ch;
+        content: 'Dir[relative](alt+d: toggle; alt+{h,l}: navigate)'`,
+  },
+});
+const workspaceDirDeco = window.createTextEditorDecorationType({
+  after: {
+    color: new ThemeColor("textPreformat.foreground"),
+    margin: `0; font-size: 0.75rem; position: relative; left: 6ch;
+        content: 'Dir[workspace](alt+d: toggle; alt+{h,l}: navigate)'`,
+  },
+});
+
+function longestCommonPrefix(strs: string[]): string {
+  let i = 0;
+
+  if (!strs.length) {
+    return "";
+  }
+
+  while (true) {
+    const char = strs[0][i] || "";
+    const match = strs.every((str) => str[i] === char);
+    if (match) {
+      i += 1;
+    } else {
+      break;
+    }
+  }
+  return strs[0].slice(0, i);
+}
+
 export class Panel {
   private queryId = -1;
   private curQuery = "";
-  private curMode: Mode | undefined;
+  private curMode: Mode = {
+    cwd: "/",
+    docOrWorkspaceDir: "doc",
+    regex: "on",
+    case_: "smart",
+    word: "off",
+  };
   private proc: ChildProcess | undefined;
 
   private refreshResults = false;
@@ -108,90 +190,54 @@ export class Panel {
   private currentFocus: number | undefined = undefined;
 
   constructor() {
-    this.applyEdits = throttle(async () => {
-      if (this.rgPanelEditor === undefined) return;
-      if (
-        this.pendingEdits.length === 0 &&
-        this.pendingSummary === undefined &&
-        !this.refreshResults
-      )
-        return;
-      const edits = this.pendingEdits;
-      const toAdd = edits.map((pe) => pe.line).join("");
-      this.pendingEdits = [];
-      await this.rgPanelEditor.edit(
-        (eb) => {
-          if (this.rgPanelEditor === undefined) return;
-          const doc = this.rgPanelEditor.document;
-          const docEnd = doc.lineAt(doc.lineCount - 1).range.end;
-          if (this.refreshResults) {
-            this.refreshResults = false;
-            eb.replace(new Range(doc.lineAt(1).range.end, docEnd), toAdd);
-          } else {
-            eb.insert(docEnd, toAdd);
-          }
-          if (this.pendingSummary) {
-            const s = this.pendingSummary;
-            this.pendingSummary = undefined;
-            if (s.type === "done") {
-              eb.replace(
-                doc.lineAt(1).range,
-                `Done: ${s.matches} matches in [${this.curMode?.cwd}] (${s.elapsed})`,
-              );
-            } else if (s.type === "start") {
-              eb.replace(doc.lineAt(1).range, `Processing query [${s.query}]`);
-            } else if (s.type === "error") {
-              eb.replace(doc.lineAt(1).range, `ERROR: ${s.msg}`);
-            }
-          }
-        },
-        { undoStopAfter: false, undoStopBefore: false },
-      );
-
-      this.rgPanelEditor?.setDecorations(matchDecoration, this.matchDecorationRegions);
-      this.rgPanelEditor?.setDecorations(
-        filenameDecoration,
-        this.filenameDecorationRegions,
-      );
-      this.rgPanelEditor?.setDecorations(
-        linenumberDecoration,
-        this.linenumberDecorationRegions,
-      );
-
-      if (this.currentFocus === undefined) {
-        await this.setFocus(0);
-      }
-    }, 200);
+    this.applyEdits = throttle(async () => this._applyEdits(), 200);
   }
 
-  public init(
+  public isRegexOn() {
+    return this.curMode.regex === "on";
+  }
+
+  public async init(
     rgPanelEditor: TextEditor,
     reqViewColumn: ViewColumn | undefined,
     reqDoc: TextDocument,
+    dirMode: "doc" | "workspace" | undefined,
   ) {
     this.rgPanelEditor = rgPanelEditor;
     this.reqViewColumn = reqViewColumn;
     this.curQuery = "";
-    const workspaceDir = workspace.workspaceFolders?.[0].uri.path;
+    let workspaceRoot = undefined;
+    if (workspace.workspaceFolders !== undefined) {
+      workspaceRoot = longestCommonPrefix(
+        workspace.workspaceFolders.map((f) => f.uri.path),
+      );
+    }
     let docDir = reqDoc.uri.scheme === "file" ? path.dirname(reqDoc.uri.path) : undefined;
     this.reqDoc = reqDoc;
-    const cwdPath = docDir ?? workspaceDir;
     const cwd =
-      cwdPath === undefined
-        ? undefined
-        : Uri.from({ scheme: "file", path: cwdPath }).fsPath;
+      dirMode === "doc"
+        ? docDir
+        : dirMode === "workspace"
+          ? workspaceRoot
+          : (docDir ?? workspaceRoot);
     if (cwd === undefined) {
-      const msg = "Unable to get cwd: both workspace and current folder are undefined";
+      const msg = "Unable to infer cwd from current file or workspace dir";
       window.showErrorMessage(msg);
       throw msg;
     }
-    const docOrWorkspaceDir = docDir !== undefined ? "doc" : "workspace";
-    this.curMode = {
-      cwd,
-      docDir,
-      workspaceDir,
-      docOrWorkspaceDir,
-    };
+    const docOrWorkspaceDir = dirMode ?? (docDir !== undefined ? "doc" : "workspace");
+    this.curMode.cwd = cwd;
+    this.curMode.docDir = docDir;
+    this.curMode.workspaceRoot = workspaceRoot;
+    this.curMode.docOrWorkspaceDir = docOrWorkspaceDir;
+
+    const doc = this.rgPanelEditor.document;
+    await rgPanelEditor.edit((eb) => {
+      const docEnd = doc.lineAt(doc.lineCount - 1).range.end;
+      const line1ToEnd = new Range(new Position(1, 0), docEnd);
+      eb.replace(line1ToEnd, this.ppCwd());
+    });
+    this.setDeco();
   }
 
   public onDocumentClosed(doc: TextDocument) {
@@ -258,11 +304,35 @@ export class Panel {
     return this.queryId === queryId;
   }
 
+  private static lastModeDeco: TextEditorDecorationType | undefined = undefined;
+  private setDeco() {
+    const editor = this.rgPanelEditor;
+    if (editor === undefined) return;
+
+    editor.setDecorations(queryDecoration, [new Range(0, 0, 0, 0)]);
+    editor.setDecorations(StatusDecoration, [new Range(1, 0, 1, 0)]);
+
+    if (Panel.lastModeDeco !== undefined) {
+      editor.setDecorations(Panel.lastModeDeco, []);
+    }
+    const modeDeco = allToggleableModeDecorations[toggleableModeToKey(this.curMode)];
+    Panel.lastModeDeco = modeDeco;
+    editor.setDecorations(modeDeco, [new Range(0, 0, 0, 0)]);
+
+    const line1End = editor.document.lineAt(1).range.end;
+    const line1EndRange = [new Range(line1End, line1End)];
+    if (this.curMode.docOrWorkspaceDir === "doc") {
+      editor.setDecorations(workspaceDirDeco, []);
+      editor.setDecorations(docDirDeco, line1EndRange);
+    } else if (this.curMode.docOrWorkspaceDir === "workspace") {
+      editor.setDecorations(docDirDeco, []);
+      editor.setDecorations(workspaceDirDeco, line1EndRange);
+    }
+  }
+
   /** returns new query id or undefined if not changed */
   public async onEdit() {
     if (this.rgPanelEditor === undefined) return undefined;
-    this.rgPanelEditor.setDecorations(queryDecoration, [new Range(0, 0, 0, 0)]);
-    this.rgPanelEditor.setDecorations(StatusDecoration, [new Range(1, 0, 1, 0)]);
     const doc = this.rgPanelEditor.document;
     const query = doc.getText(doc.lineAt(0).range).replace(/^rg> /, "");
 
@@ -275,22 +345,65 @@ export class Panel {
     }
   }
 
+  public async searchDirUp() {
+    const mode = this.curMode;
+    const lastSlash = mode.cwd.replace(/\/$/, "").lastIndexOf("/");
+    if (lastSlash > 0) {
+      mode.cwd = mode.cwd.slice(0, lastSlash);
+      await this.newQuery();
+    }
+  }
+
+  public async searchDirDown() {
+    const mode = this.curMode;
+    const fullDir = mode.docOrWorkspaceDir === "doc" ? mode.docDir : mode.workspaceRoot;
+    if (fullDir !== undefined && fullDir.startsWith(mode.cwd)) {
+      const idxOfSlash = mode.cwd.replace(/\/$/, "").length;
+      const nextSlash = (fullDir + "/").indexOf("/", idxOfSlash + 1);
+      if (nextSlash > 0) {
+        mode.cwd = fullDir.slice(0, nextSlash);
+        await this.newQuery();
+      }
+    }
+  }
+
   /** returns new query id or undefined if not changed */
   public async toggleDir() {
     if (this.rgPanelEditor === undefined) return undefined;
     assert(this.curMode !== undefined, "unexpected undefined mode");
     const mode = this.curMode;
-    if (mode.docOrWorkspaceDir === "doc" && mode.workspaceDir !== undefined) {
+    if (mode.docOrWorkspaceDir === "doc" && mode.workspaceRoot !== undefined) {
       mode.docOrWorkspaceDir = "workspace";
-      mode.cwd = Uri.from({ scheme: "file", path: mode.workspaceDir }).fsPath;
+      mode.cwd = mode.workspaceRoot;
     } else if (mode.docOrWorkspaceDir === "workspace" && mode.docDir !== undefined) {
       mode.docOrWorkspaceDir = "doc";
-      mode.cwd = Uri.from({ scheme: "file", path: mode.docDir }).fsPath;
+      mode.cwd = mode.docDir;
     } else {
       // not changed
       return undefined;
     }
     await this.newQuery();
+  }
+
+  public async toggleMode(key: ModeToggleKeys) {
+    const mode = this.curMode;
+    if (key === "case") {
+      mode.case_ =
+        mode.case_ === "smart" ? "ignore" : mode.case_ === "ignore" ? "strict" : "smart";
+    } else if (key === "regex") {
+      mode.regex = mode.regex === "on" ? "off" : "on";
+    } else if (key === "word") {
+      mode.word = mode.word === "on" ? "off" : "on";
+    }
+    await this.newQuery();
+  }
+
+  private ppCwd() {
+    const cwd = this.curMode.cwd;
+    if (cwd.length > 40) {
+      return `[...${this.curMode.cwd.slice(-37)}]`;
+    }
+    return `[${this.curMode.cwd}]`;
   }
 
   // TODO support mode change
@@ -317,8 +430,12 @@ export class Panel {
       await this.rgPanelEditor.edit((eb) => {
         const docEnd = doc.lineAt(doc.lineCount - 1).range.end;
         const line1ToEnd = new Range(new Position(1, 0), docEnd);
-        eb.replace(line1ToEnd, `processing query [${query}] in [${this.curMode?.cwd}]`);
+        eb.replace(
+          line1ToEnd,
+          this.ppCwd() + (query ? ` processing query [${query}]` : ""),
+        );
       });
+      this.setDeco();
     }
 
     this.currentFocus = undefined;
@@ -332,10 +449,10 @@ export class Panel {
         {
           query,
           dir: [],
-          // dir: [this.curMode!.cwd],
-          cwd: this.curMode!.cwd,
-          regex: "on",
-          case: "smart",
+          cwd: Uri.from({ scheme: "file", path: this.curMode.cwd }).fsPath,
+          case: this.curMode.case_,
+          regex: this.curMode.regex,
+          word: this.curMode.word,
         },
         this.queryId,
       );
@@ -408,7 +525,7 @@ export class Panel {
       const l = info.lineNo;
       if (info !== undefined && f !== undefined && l !== undefined) {
         const viewColumn = this.reqViewColumn ?? 1;
-        const file = Uri.file(path.join(this.curMode!.cwd, f));
+        const file = Uri.file(path.join(this.curMode.cwd, f));
         const editor = await window.showTextDocument(file, {
           viewColumn,
           preserveFocus: true,
@@ -458,6 +575,65 @@ export class Panel {
       nextLine++;
     }
     this.applyEdits();
+  }
+
+  async _applyEdits() {
+    if (this.rgPanelEditor === undefined) return;
+    if (
+      this.pendingEdits.length === 0 &&
+      this.pendingSummary === undefined &&
+      !this.refreshResults
+    )
+      return;
+    const edits = this.pendingEdits;
+    const toAdd = edits.map((pe) => pe.line).join("");
+    this.pendingEdits = [];
+    await this.rgPanelEditor.edit(
+      (eb) => {
+        if (this.rgPanelEditor === undefined) return;
+        const doc = this.rgPanelEditor.document;
+        const docEnd = doc.lineAt(doc.lineCount - 1).range.end;
+        if (this.refreshResults) {
+          this.refreshResults = false;
+          eb.replace(new Range(doc.lineAt(1).range.end, docEnd), toAdd);
+        } else {
+          eb.insert(docEnd, toAdd);
+        }
+        if (this.pendingSummary) {
+          const s = this.pendingSummary;
+          this.pendingSummary = undefined;
+          if (s.type === "done") {
+            eb.replace(
+              doc.lineAt(1).range,
+              `${this.ppCwd()} Done: ${s.matches} matches (${s.elapsed})`,
+            );
+          } else if (s.type === "start") {
+            eb.replace(
+              doc.lineAt(1).range,
+              `${this.ppCwd()} processing query [${s.query}]`,
+            );
+          } else if (s.type === "error") {
+            eb.replace(doc.lineAt(1).range, `[${this.curMode.cwd}] ERROR: ${s.msg}`);
+          }
+        }
+      },
+      { undoStopAfter: false, undoStopBefore: false },
+    );
+
+    this.rgPanelEditor?.setDecorations(matchDecoration, this.matchDecorationRegions);
+    this.rgPanelEditor?.setDecorations(
+      filenameDecoration,
+      this.filenameDecorationRegions,
+    );
+    this.rgPanelEditor?.setDecorations(
+      linenumberDecoration,
+      this.linenumberDecorationRegions,
+    );
+    this.setDeco();
+
+    if (this.currentFocus === undefined) {
+      await this.setFocus(0);
+    }
   }
 
   public onSummary(summary: Summary, queryId: number) {

@@ -34,18 +34,20 @@ interface RipGrepQuery {
   query: string;
   cwd: string;
   dir: string[];
-  regex: "on" | "off"; // --fixed-strings
   case: "smart" | "strict" | "ignore"; // --ignore-case --smart-case
+  regex: "on" | "off"; // --fixed-strings
+  word: "on" | "off"; // --word-regexp
 }
 
 export function doQuery(q: RipGrepQuery, queryId: number) {
   const rgOpts = ["--json"];
-  if (q.regex === "off") rgOpts.push("--fixed-strings");
   if (q.case === "smart") {
     rgOpts.push("--smart-case");
   } else if (q.case === "ignore") {
     rgOpts.push("--ignore-case");
   }
+  if (q.regex === "off") rgOpts.push("--fixed-strings");
+  if (q.word === "on") rgOpts.push("--word-regexp");
 
   // resolve to relative dir
   let dirs = q.dir.map((dir) => {

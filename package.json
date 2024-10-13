@@ -58,6 +58,26 @@
       {
         "command": "ripgrep.toggleSearchDir",
         "title": "Ripgrep: toggle search dir (project dir / current dir)"
+      },
+      {
+        "command": "ripgrep.dirUp",
+        "title": "Ripgrep: change search dir to parent"
+      },
+      {
+        "command": "ripgrep.dirDown",
+        "title": "Ripgrep: change search dir to child"
+      },
+      {
+        "command": "ripgrep.toggleCase",
+        "title": "Ripgrep: toggle case (smart/ignore/strict)"
+      },
+      {
+        "command": "ripgrep.toggleRegex",
+        "title": "Ripgrep: toggle regex (on/off)"
+      },
+      {
+        "command": "ripgrep.toggleWord",
+        "title": "Ripgrep: toggle word (on/off)"
       }
     ],
     "configurationDefaults": {
@@ -157,6 +177,26 @@
       {
         "key": "alt+d",
         "command": "ripgrep.toggleSearchDir",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      },
+      {
+        "key": "alt+h",
+        "command": "ripgrep.dirUp",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      },
+      {
+        "key": "alt+l",
+        "command": "ripgrep.dirDown",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      },
+      {
+        "key": "alt+r",
+        "command": "ripgrep.toggleRegex",
+        "when": "editorFocus && editorLangId == 'ripgrep-panel'"
+      },
+      {
+        "key": "alt+w",
+        "command": "ripgrep.toggleWord",
         "when": "editorFocus && editorLangId == 'ripgrep-panel'"
       },
       {

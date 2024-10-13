@@ -39,14 +39,21 @@ function numGroups(layout: EditorGroupSubLayout): number {
   return layout.groups.reduce((s, l) => s + numGroups(l), 0);
 }
 
-async function find() {
+interface FindOpts {
+  dirMode?: "doc" | "workspace";
+}
+
+async function find(opts: FindOpts) {
   const reqSrcEditor = window.activeTextEditor;
   if (reqSrcEditor === undefined) return;
 
   const reqDoc = reqSrcEditor.document;
   const reqViewColumn = reqSrcEditor.viewColumn;
   const sel = reqSrcEditor.selection;
-  const initQuery = reqDoc.getText(new Range(sel.start, sel.end));
+  let initQuery = reqDoc.getText(new Range(sel.start, sel.end));
+  if (grepPanel.isRegexOn()) {
+    initQuery = initQuery.replaceAll(/[\/\\^$+?.()\|\*[\]{}]/g, "\\$&");
+  }
 
   const file = Uri.from({
     scheme: DUMMY_FS_SCHEME,
@@ -95,8 +102,13 @@ async function find() {
     await commands.executeCommand("vim.remap", { after: ["A"] });
   } catch {}
 
-  grepPanel.init(rgPanelEditor, reqViewColumn, reqDoc);
-  await grepPanel.onEdit();
+  try {
+    await grepPanel.init(rgPanelEditor, reqViewColumn, reqDoc, opts.dirMode);
+    await grepPanel.onEdit();
+  } catch (e) {
+    grepPanel.quit(false);
+    throw e;
+  }
 }
 
 export async function activate(context: ExtensionContext) {
@@ -120,9 +132,22 @@ export async function activate(context: ExtensionContext) {
   context.subscriptions.push(
     commands.registerCommand("ripgrep.enter", async () => grepPanel.enter()),
     commands.registerCommand("ripgrep.quit", async () => grepPanel.quit(true)),
-    commands.registerCommand("ripgrep.find", find),
+    commands.registerCommand("ripgrep.find", async () => await find({})),
+    commands.registerCommand(
+      "ripgrep.findInCurrentDir",
+      async () => await find({ dirMode: "doc" }),
+    ),
+    commands.registerCommand(
+      "ripgrep.findInWorkspace",
+      async () => await find({ dirMode: "workspace" }),
+    ),
     commands.registerCommand("ripgrep.moveFocus", (args) => grepPanel.moveFocus(args)),
+    commands.registerCommand("ripgrep.dirUp", () => grepPanel.searchDirUp()),
+    commands.registerCommand("ripgrep.dirDown", () => grepPanel.searchDirDown()),
     commands.registerCommand("ripgrep.toggleSearchDir", () => grepPanel.toggleDir()),
+    commands.registerCommand("ripgrep.toggleCase", () => grepPanel.toggleMode("case")),
+    commands.registerCommand("ripgrep.toggleRegex", () => grepPanel.toggleMode("regex")),
+    commands.registerCommand("ripgrep.toggleWord", () => grepPanel.toggleMode("word")),
   );
   languages.registerDocumentSymbolProvider(
     { language: "ripgrep-panel" },
