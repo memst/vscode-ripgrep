@@ -1,12 +1,12 @@
 import { spawn } from "child_process";
 import {
-    commands,
-    ExtensionContext,
-    languages,
-    Range,
-    Uri,
-    window,
-    workspace,
+  commands,
+  ExtensionContext,
+  languages,
+  Range,
+  Uri,
+  window,
+  workspace,
 } from "vscode";
 import { DummyFS } from "./dummyFS";
 import { GrepLine, Panel, Summary } from "./panel";
@@ -16,7 +16,7 @@ const DUMMY_FS_SCHEME = "rg-vscode-fake-fs";
 const RG_BUFFER_NAME = "VSCode Ripgrep";
 let rgBufferCounter = 0;
 
-const grepPanel = new Panel();
+export const grepPanel = new Panel();
 
 interface EditorGroupSubLayout {
   groups?: EditorGroupSubLayout[];
@@ -30,107 +30,6 @@ interface EditorGroupLayout extends EditorGroupSubLayout {
 function numGroups(layout: EditorGroupSubLayout): number {
   if (layout.groups === undefined) return 1;
   return layout.groups.reduce((s, l) => s + numGroups(l), 0);
-}
-
-interface GrepBegin {
-  type: "begin";
-  data: { path?: { text?: string } };
-}
-interface GrepEnd {
-  type: "end";
-  data: { path?: { text?: string } };
-}
-interface GrepMatch {
-  type: "match";
-  data: {
-    path?: { text?: string };
-    lines: { text?: string };
-    line_number: number;
-    submatches: { match: { text?: string }; start: number; end: number }[];
-  };
-}
-interface GrepSummary {
-  type: "summary";
-  data: {
-    elapsed_total: { human: string; secs: number; nanos: number };
-    stats: { matched_lines: number };
-  };
-}
-
-type GrepMessage = GrepBegin | GrepEnd | GrepMatch | GrepSummary;
-
-function doQuery(query: string, queryId: number, cwd: string) {
-  const rgProc = spawn("rg", ["--json", query], {
-    stdio: ["ignore", "pipe", "pipe"],
-    cwd,
-  });
-
-  let stderrBuffer = "";
-  rgProc.stderr.on("data", (data) => (stderrBuffer += data.toString()));
-
-  rgProc.on("error", (e) => {
-    grepPanel.onSummary(
-      { type: "error", msg: `Process error ${e}.\n\nstderr:\n${stderrBuffer}` },
-      queryId,
-    );
-  });
-
-  grepPanel.manageProc(rgProc, queryId);
-  const stream = rgProc.stdout;
-  let buf = "";
-  stream.on("data", (data) => {
-    if (!grepPanel.isQueryId(queryId)) {
-      // duplicate kill (`manageProc` should already kill it), but just in case
-      rgProc.kill();
-      return;
-    }
-
-    buf = buf + data.toString();
-    const lines = buf.split("\n");
-    if (lines.length > 0) {
-      buf = lines.pop()!;
-      let summary: Summary | undefined = undefined;
-      let gls: GrepLine[] = [];
-      for (const line of lines) {
-        const msg: GrepMessage = JSON.parse(line);
-        if (msg.type === "match") {
-          const data = msg.data;
-          const text = data.lines.text;
-          if (text !== undefined && text.endsWith("\n")) {
-            gls.push({
-              file: data.path?.text ?? "<bad filename>",
-              lineNo: data.line_number,
-              line: text.trimEnd(),
-              match: data.submatches.map(({ start, end }) => ({ start, end })),
-            });
-          }
-        } else if (msg.type === "summary") {
-          const data = msg.data;
-          const elapsed =
-            (data.elapsed_total.secs + data.elapsed_total.nanos * 1e-9).toFixed(2) + "s";
-          summary = { type: "done", matches: data.stats.matched_lines, elapsed };
-        }
-      }
-      grepPanel.onGrepLines(gls, queryId);
-      if (summary !== undefined) grepPanel.onSummary(summary, queryId);
-    }
-  });
-}
-
-async function onEdit() {
-  const onEdit = await grepPanel.onEdit();
-  if (onEdit === undefined) return;
-  const { query, queryId, cwd } = onEdit;
-  // TODO refactor [doQuery] to a callback
-  doQuery(query, queryId, cwd);
-}
-
-async function toggleDir() {
-  const onToggle = await grepPanel.toggleDir();
-  if (onToggle === undefined) return;
-  const { query, queryId, cwd } = onToggle;
-  // TODO refactor [doQuery] to a callback
-  doQuery(query, queryId, cwd);
 }
 
 async function find() {
@@ -186,11 +85,11 @@ async function find() {
   });
   try {
     // try to turn vim into insert mode
-    await commands.executeCommand("vim.remap", { after: "A" });
+    await commands.executeCommand("vim.remap", { after: ["A"] });
   } catch {}
 
   grepPanel.init(rgPanelEditor, reqViewColumn, reqDoc);
-  await onEdit();
+  await grepPanel.onEdit();
 }
 
 export async function activate(context: ExtensionContext) {
@@ -199,7 +98,7 @@ export async function activate(context: ExtensionContext) {
   });
   workspace.onDidChangeTextDocument((e) => {
     if (e.document.languageId == RIPGREP_LANGID) {
-      setTimeout(onEdit, 200);
+      setTimeout(() => grepPanel.onEdit(), 200);
     }
   });
   workspace.onDidCloseTextDocument((doc) => {
@@ -208,15 +107,15 @@ export async function activate(context: ExtensionContext) {
   window.onDidChangeActiveTextEditor((_te) => {
     grepPanel.quit(false);
   });
-  window.onDidChangeTextEditorSelection(e => {
+  window.onDidChangeTextEditorSelection((e) => {
     grepPanel.onChangeSelection(e);
-  })
+  });
   context.subscriptions.push(
     commands.registerCommand("ripgrep.enter", async () => grepPanel.enter()),
     commands.registerCommand("ripgrep.quit", async () => grepPanel.quit(true)),
     commands.registerCommand("ripgrep.find", find),
     commands.registerCommand("ripgrep.moveFocus", (args) => grepPanel.moveFocus(args)),
-    commands.registerCommand("ripgrep.toggleSearchDir", () => toggleDir()),
+    commands.registerCommand("ripgrep.toggleSearchDir", () => grepPanel.toggleDir()),
   );
 }
 

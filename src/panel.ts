@@ -17,6 +17,7 @@ import {
   workspace,
 } from "vscode";
 import { throttle } from "./throttle";
+import { doQuery } from "./rg";
 
 export interface GrepLine {
   file: string;
@@ -59,10 +60,14 @@ const MAX_LINES_TO_SHOW = 200;
 const queryDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
   backgroundColor: new ThemeColor("list.hoverBackground"),
+  before: {
+    contentText: "rg> ",
+    border: "solid 1px gray; border-radius: 5px",
+  },
 });
 const StatusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
-  backgroundColor: new ThemeColor("statusBar.background"),
+  backgroundColor: new ThemeColor("button.background"),
 });
 const focusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
@@ -261,11 +266,10 @@ export class Panel {
     const doc = this.rgPanelEditor.document;
     const query = doc.getText(doc.lineAt(0).range).replace(/^rg> /, "");
     if (query === this.curQuery || query === "") {
-      return undefined;
+      // don't start query
     } else {
       assert(this.curMode !== undefined, "unexpected undefined mode");
-      const queryId = await this.newQuery(query);
-      return { query, queryId, cwd: this.curMode.cwd };
+      await this.newQuery(query);
     }
   }
 
@@ -284,16 +288,14 @@ export class Panel {
       // not changed
       return undefined;
     }
-    const query = this.curQuery;
-    const queryId = await this.newQuery(query);
-    return { query, queryId, cwd: mode.cwd };
+    await this.newQuery();
   }
 
   // TODO support mode change
-  private async newQuery(query: string): Promise<number> {
+  private async newQuery(query?: string): Promise<void> {
     this.queryId++;
     // TODO this.curModes=modes;
-    this.curQuery = query;
+    if (query !== undefined) this.curQuery = query;
     this.proc?.kill();
     this.proc = undefined;
 
@@ -304,7 +306,7 @@ export class Panel {
     this.matchDecorationRegions = [];
     this.filenameDecorationRegions = [];
     this.linenumberDecorationRegions = [];
-    this.pendingSummary = { type: "start", query };
+    this.pendingSummary = { type: "start", query: this.curQuery };
 
     if (this.rgPanelEditor !== undefined) {
       const doc = this.rgPanelEditor.document;
@@ -320,7 +322,18 @@ export class Panel {
     this.rgPanelEditor?.setDecorations(matchDecoration, []);
     // TODO remove filename and line number decorations
 
-    return this.queryId;
+    // TODO regex escape
+    doQuery(
+      {
+        query: this.curQuery,
+        dir: [],
+        // dir: [this.curMode!.cwd],
+        cwd: this.curMode!.cwd,
+        regex: "on",
+        case: "smart",
+      },
+      this.queryId,
+    );
   }
 
   public manageProc(proc: ChildProcess, queryId: number) {
@@ -347,7 +360,6 @@ export class Panel {
         preserveFocus: false,
         preview: false,
       });
-      await vimEsc();
       editor.selections = [new Selection(lineL.start, lineL.start)];
       editor.setDecorations(focusDecoration, []);
       editor.revealRange(lineL, TextEditorRevealType.InCenterIfOutsideViewport);
