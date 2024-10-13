@@ -443,7 +443,6 @@ export class Panel {
     this.rgPanelEditor?.setDecorations(matchDecoration, []);
     // TODO remove filename and line number decorations
 
-    // TODO regex escape
     if (query !== "") {
       doQuery(
         {

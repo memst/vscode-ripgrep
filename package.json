@@ -3,7 +3,7 @@
   "publisher": "JimmyZJX",
   "displayName": "Ripgrep",
   "description": "Ripgrep with full keyboard navigable support",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "homepage": "https://github.com/JimmyZJX/vscode-ripgrep",
   "repository": {
     "type": "git",
@@ -41,7 +41,7 @@
     "commands": [
       {
         "command": "ripgrep.find",
-        "title": "Ripgrep: find"
+        "title": "Ripgrep: find. Optional arguments: `{ dirMode: 'doc' | 'workspace'; withSelection?: boolean; }` to control the behavior of default query dir and text."
       },
       {
         "command": "ripgrep.enter",

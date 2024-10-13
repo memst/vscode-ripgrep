@@ -41,6 +41,7 @@ function numGroups(layout: EditorGroupSubLayout): number {
 
 interface FindOpts {
   dirMode?: "doc" | "workspace";
+  withSelection?: boolean;
 }
 
 async function find(opts: FindOpts) {
@@ -51,6 +52,12 @@ async function find(opts: FindOpts) {
   const reqViewColumn = reqSrcEditor.viewColumn;
   const sel = reqSrcEditor.selection;
   let initQuery = reqDoc.getText(new Range(sel.start, sel.end));
+  if (initQuery === "" && opts.withSelection) {
+    const range = reqDoc.getWordRangeAtPosition(sel.start);
+    if (range !== undefined) {
+      initQuery = reqDoc.getText(range);
+    }
+  }
   if (grepPanel.isRegexOn()) {
     initQuery = initQuery.replaceAll(/[\/\\^$+?.()\|\*[\]{}]/g, "\\$&");
   }
@@ -132,7 +139,10 @@ export async function activate(context: ExtensionContext) {
   context.subscriptions.push(
     commands.registerCommand("ripgrep.enter", async () => grepPanel.enter()),
     commands.registerCommand("ripgrep.quit", async () => grepPanel.quit(true)),
-    commands.registerCommand("ripgrep.find", async () => await find({})),
+    commands.registerCommand("ripgrep.find", async (args) => {
+      args = typeof args === "object" ? args : {};
+      await find(args);
+    }),
     commands.registerCommand(
       "ripgrep.findInCurrentDir",
       async () => await find({ dirMode: "doc" }),
