@@ -484,7 +484,7 @@ export class Panel {
       });
       editor.selections = [new Selection(lineL.start, lineL.start)];
       editor.setDecorations(focusDecoration, []);
-      editor.revealRange(lineL, TextEditorRevealType.InCenterIfOutsideViewport);
+      vimEsc(l);
     }
   }
 
@@ -642,8 +642,12 @@ export class Panel {
   }
 }
 
-async function vimEsc() {
+async function vimEsc(goToLine?: number) {
+  let vimCmds = ["<Esc>"];
+  if (goToLine !== undefined) {
+    vimCmds = [...`${goToLine}ggzz`, "<Esc>"];
+  }
   try {
-    await commands.executeCommand("vim.remap", { after: ["<Esc>"] });
+    await commands.executeCommand("vim.remap", { after: vimCmds });
   } catch {}
 }
