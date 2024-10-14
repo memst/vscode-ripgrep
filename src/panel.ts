@@ -17,8 +17,8 @@ import {
   window,
   workspace,
 } from "vscode";
-import { throttle } from "./throttle";
 import { doQuery } from "./rg";
+import { throttle } from "./throttle";
 
 export interface GrepLine {
   file: string;
@@ -275,11 +275,28 @@ export class Panel {
     const panelEditor = this.rgPanelEditor;
     if (panelEditor !== undefined) {
       this.rgPanelEditor = undefined;
+
       const doc = panelEditor.document;
-      const viewColumn = panelEditor.viewColumn;
-      await window.showTextDocument(doc, { preserveFocus: false, viewColumn });
-      await commands.executeCommand("workbench.action.files.saveWithoutFormatting");
-      await commands.executeCommand("workbench.action.closeEditorsAndGroup");
+      const activeEditor = window.activeTextEditor;
+      if (
+        activeEditor !== undefined &&
+        activeEditor.document.uri.toString() === doc.uri.toString()
+      ) {
+        await commands.executeCommand("workbench.action.revertAndCloseActiveEditor");
+      } else {
+        // try to switch to the panel editor doc on the same view column
+        await window.showTextDocument(doc, {
+          preserveFocus: false,
+          viewColumn: panelEditor.viewColumn,
+        });
+        const activeEditor = window.activeTextEditor;
+        if (
+          activeEditor !== undefined &&
+          activeEditor.document.uri.toString() === doc.uri.toString()
+        ) {
+          await commands.executeCommand("workbench.action.revertAndCloseActiveEditor");
+        }
+      }
 
       // try to remove decorations on the preview editor
       const editor = window.activeTextEditor;
