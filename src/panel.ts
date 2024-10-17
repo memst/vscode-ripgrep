@@ -75,12 +75,12 @@ const queryDecoration = window.createTextEditorDecorationType({
 });
 const StatusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
-  backgroundColor: new ThemeColor("button.background"),
-  color: new ThemeColor("foreground")
+  backgroundColor: new ThemeColor("list.activeSelectionBackground"),
+  color: new ThemeColor("list.activeSelectionForeground")
 });
 const focusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
-  backgroundColor: new ThemeColor("list.activeSelectionBackground"),
+  backgroundColor: new ThemeColor("list.inactiveSelectionBackground"),
 });
 const matchDecoration = window.createTextEditorDecorationType({
   color: new ThemeColor("errorForeground"),
