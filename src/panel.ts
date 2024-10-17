@@ -75,8 +75,8 @@ const queryDecoration = window.createTextEditorDecorationType({
 });
 const StatusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
-  backgroundColor: new ThemeColor("button.background"),
-  color: new ThemeColor("button.foreground"),
+  backgroundColor: new ThemeColor("editorinfo.background"),
+  color: new ThemeColor("editorinfo.foreground"),
 });
 const focusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
@@ -116,7 +116,7 @@ const allToggleableModeDecorations = Object.fromEntries(
       });
       const deco = window.createTextEditorDecorationType({
         after: {
-          color: new ThemeColor("textPreformat.foreground"),
+          color: new ThemeColor("textLink.foreground"),
           margin: `0;
              position: absolute; left: 80ch; font-size: 0.75rem;
              content: 'Case[${case_}](alt+c) \\00a0 Regex[${regex}](alt+r) \\00a0 Word[${word}](alt+w)'`,
@@ -129,7 +129,7 @@ const allToggleableModeDecorations = Object.fromEntries(
 
 const docDirDeco = window.createTextEditorDecorationType({
   after: {
-    color: new ThemeColor("textPreformat.foreground"),
+    color: new ThemeColor("textLink.foreground"),
     margin: `; font-size: 0.75rem; position: relative; left: 6ch;
         content: 'Dir[relative](alt+d: toggle; alt+{h,l}: navigate)'`,
   },
