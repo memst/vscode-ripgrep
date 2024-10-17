@@ -76,6 +76,7 @@ const queryDecoration = window.createTextEditorDecorationType({
 const StatusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
   backgroundColor: new ThemeColor("button.background"),
+  color: new ThemeColor("button.foreground"),
 });
 const focusDecoration = window.createTextEditorDecorationType({
   isWholeLine: true,
